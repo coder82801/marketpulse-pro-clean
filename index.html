@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MarketPulse Pro Clean</title>
+  <title>MarketPulse Pro</title>
   <style>
     :root{
       --bg:#08111f;
@@ -35,7 +35,7 @@
     body{min-height:100vh}
 
     .app{
-      max-width:1600px;
+      max-width:1650px;
       margin:0 auto;
       padding:18px;
     }
@@ -50,7 +50,7 @@
 
     .brand-wrap{display:flex;align-items:flex-end;gap:10px}
     .brand-main{
-      font-size:34px;
+      font-size:36px;
       font-weight:900;
       color:var(--brand);
       letter-spacing:.2px
@@ -58,7 +58,7 @@
     .brand-sub{
       font-size:14px;
       color:var(--muted);
-      margin-bottom:6px;
+      margin-bottom:7px;
       font-weight:700
     }
 
@@ -135,7 +135,7 @@
     }
 
     .panel-title{
-      font-size:20px;
+      font-size:22px;
       font-weight:900;
       margin:0
     }
@@ -171,7 +171,7 @@
 
     .list{
       display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+      grid-template-columns:repeat(auto-fill,minmax(255px,1fr));
       gap:12px
     }
 
@@ -180,7 +180,7 @@
       border:1px solid var(--line);
       border-radius:16px;
       padding:14px;
-      min-height:170px;
+      min-height:188px;
       transition:.16s ease;
     }
     .stock-card:hover{
@@ -222,6 +222,7 @@
     .score-hot{background:rgba(245,158,11,.14);color:#fdba74}
     .score-green{background:rgba(34,197,94,.14);color:#86efac}
     .score-blue{background:rgba(59,130,246,.14);color:#93c5fd}
+    .score-purple{background:rgba(168,85,247,.14);color:#d8b4fe}
 
     .full-panel{
       grid-column:1 / -1;
@@ -243,7 +244,7 @@
       padding:8px 0
     }
 
-    @media (max-width:1100px){
+    @media (max-width:1200px){
       .layout{grid-template-columns:1fr}
       .full-panel{grid-column:auto}
     }
@@ -264,10 +265,11 @@
     <div class="topbar">
       <div class="brand-wrap">
         <div class="brand-main">MarketPulse Pro</div>
-        <div class="brand-sub">Clean Market Intelligence</div>
+        <div class="brand-sub">Whale / Breakout / Accumulation Scanner</div>
       </div>
       <div class="actions">
         <div class="badge">Durum: <strong id="healthStatus">Bağlanıyor</strong></div>
+        <div class="badge">Veri Kaynağı: <strong id="sourceStatus">Kontrol ediliyor</strong></div>
         <div class="badge">Son Güncelleme: <strong id="lastRefreshText">—</strong></div>
         <button id="refreshBtn" class="btn">Yenile</button>
       </div>
@@ -279,8 +281,8 @@
       <section class="panel">
         <div class="panel-header">
           <div>
-            <h2 class="panel-title">🔥 Scanner</h2>
-            <div class="panel-sub">En güçlü hareket eden hisseler</div>
+            <h2 class="panel-title">🔥 %5+ Movers</h2>
+            <div class="panel-sub">En az %5 yukarı yönlü hareket eden hisseler</div>
           </div>
         </div>
         <div class="stats">
@@ -303,8 +305,8 @@
       <section class="panel">
         <div class="panel-header">
           <div>
-            <h2 class="panel-title">🐋 Whale Flow</h2>
-            <div class="panel-sub">Hacim ve momentum bazlı güçlü akış</div>
+            <h2 class="panel-title">🐋 Whale Candidates</h2>
+            <div class="panel-sub">Hacim + range + güçlü kapanış + ivme</div>
           </div>
         </div>
         <div class="stats">
@@ -324,11 +326,11 @@
         <div id="whaleList" class="list"></div>
       </section>
 
-      <section class="panel full-panel">
+      <section class="panel">
         <div class="panel-header">
           <div>
-            <h2 class="panel-title">💥 Breakouts</h2>
-            <div class="panel-sub">Güçlü breakout ve devam potansiyeli</div>
+            <h2 class="panel-title">💥 Breakout Candidates</h2>
+            <div class="panel-sub">Yarın da devam etme ihtimali yüksek kırılım adayları</div>
           </div>
         </div>
         <div class="stats">
@@ -347,9 +349,33 @@
         </div>
         <div id="breakoutList" class="list"></div>
       </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">🌊 Accumulation Candidates</h2>
+            <div class="panel-sub">Daha kontrollü ama hacimli ve güçlü kapanan adaylar</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-k">Aday Sayısı</div>
+            <div id="accCount" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">En Yüksek Skor</div>
+            <div id="accBest" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">Ortalama Skor</div>
+            <div id="accAvg" class="stat-v">—</div>
+          </div>
+        </div>
+        <div id="accList" class="list"></div>
+      </section>
     </div>
 
-    <div class="footer-note">MarketPulse Pro Clean</div>
+    <div class="footer-note">MarketPulse Pro</div>
   </div>
 
   <script>
@@ -391,8 +417,8 @@
       return `
         <div class="mini-card">
           <div class="mini-label">${item.symbol}</div>
-          <div class="mini-price">${formatPrice(item.regularMarketPrice)}</div>
-          <div class="mini-change ${signalColorClass(item.regularMarketChangePercent)}">${formatPct(item.regularMarketChangePercent)}</div>
+          <div class="mini-price">${formatPrice(item.price)}</div>
+          <div class="mini-change ${signalColorClass(item.changePercent)}">${formatPct(item.changePercent)}</div>
         </div>
       `;
     }
@@ -407,9 +433,12 @@
       } else if (mode === "whale") {
         scoreLabel = `Whale Score ${item.whaleScore}/100`;
         scoreClass = "score-hot";
-      } else {
+      } else if (mode === "breakout") {
         scoreLabel = `Breakout Score ${item.breakoutScore}/100`;
         scoreClass = "score-green";
+      } else {
+        scoreLabel = `Accum Score ${item.accumulationScore}/100`;
+        scoreClass = "score-purple";
       }
 
       return `
@@ -426,6 +455,7 @@
           </div>
           <div class="stock-lines">
             <div class="stock-line">Vol×: ${formatNum(item.volumeRatio, 2)}</div>
+            <div class="stock-line">Range %: ${formatNum(item.rangePercent, 2)}</div>
           </div>
           <div class="score ${scoreClass}">${scoreLabel}</div>
         </div>
@@ -442,8 +472,10 @@
       try {
         const data = await fetchJson("/health");
         $("healthStatus").textContent = data.ok ? "Aktif" : "Sorun";
+        $("sourceStatus").textContent = data.alpacaConfigured ? `Alpaca (${data.feed})` : "Yahoo fallback";
       } catch {
         $("healthStatus").textContent = "Hata";
+        $("sourceStatus").textContent = "Bilinmiyor";
       }
     }
 
@@ -494,12 +526,12 @@
 
         $("whaleList").innerHTML = data.length
           ? data.map((item) => buildStockCard(item, "whale")).join("")
-          : `<div class="empty">Whale Flow verisi yok</div>`;
+          : `<div class="empty">Whale verisi yok</div>`;
       } catch {
         $("whaleCount").textContent = "—";
         $("whaleBest").textContent = "—";
         $("whaleAvg").textContent = "—";
-        $("whaleList").innerHTML = `<div class="empty">Whale Flow verisi alınamadı</div>`;
+        $("whaleList").innerHTML = `<div class="empty">Whale verisi alınamadı</div>`;
       }
     }
 
@@ -525,6 +557,28 @@
       }
     }
 
+    async function loadAccumulation() {
+      try {
+        const res = await fetchJson("/api/accumulation");
+        const data = Array.isArray(res.data) ? res.data : [];
+
+        $("accCount").textContent = data.length;
+        $("accBest").textContent = data.length ? `${data[0].accumulationScore}/100` : "—";
+        $("accAvg").textContent = data.length
+          ? formatNum(data.reduce((a, b) => a + Number(b.accumulationScore || 0), 0) / data.length, 1)
+          : "—";
+
+        $("accList").innerHTML = data.length
+          ? data.map((item) => buildStockCard(item, "acc")).join("")
+          : `<div class="empty">Accumulation verisi yok</div>`;
+      } catch {
+        $("accCount").textContent = "—";
+        $("accBest").textContent = "—";
+        $("accAvg").textContent = "—";
+        $("accList").innerHTML = `<div class="empty">Accumulation verisi alınamadı</div>`;
+      }
+    }
+
     async function refreshAll() {
       $("lastRefreshText").textContent = nowText();
       await Promise.all([
@@ -532,7 +586,8 @@
         loadIndexes(),
         loadScanner(),
         loadWhales(),
-        loadBreakouts()
+        loadBreakouts(),
+        loadAccumulation()
       ]);
     }
 
