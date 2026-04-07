@@ -1,130 +1,545 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-<meta charset="UTF-8">
-<title>MarketPulse Pro</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MarketPulse Pro Clean</title>
+  <style>
+    :root{
+      --bg:#08111f;
+      --bg2:#0b1830;
+      --panel:#0d172a;
+      --panel2:#101c34;
+      --card:#12203a;
+      --line:#21314f;
+      --line2:#30476f;
+      --text:#e7eefb;
+      --muted:#8ea3c8;
+      --brand:#20d3ee;
+      --brand2:#1098b4;
+      --green:#22c55e;
+      --red:#ef4444;
+      --amber:#f59e0b;
+      --shadow:0 14px 32px rgba(0,0,0,.28);
+      --radius:18px;
+    }
 
-<style>
-body {
-  background:#0f172a;
-  color:#e2e8f0;
-  font-family:Arial;
-  margin:0;
-}
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      padding:0;
+      font-family:Inter,Arial,Helvetica,sans-serif;
+      background:linear-gradient(180deg,var(--bg),#06101c 100%);
+      color:var(--text)
+    }
+    body{min-height:100vh}
 
-.header {
-  padding:15px;
-  background:#020617;
-  display:flex;
-  gap:20px;
-}
+    .app{
+      max-width:1600px;
+      margin:0 auto;
+      padding:18px;
+    }
 
-.card {
-  background:#1e293b;
-  padding:10px;
-  border-radius:10px;
-}
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:14px;
+      margin-bottom:14px
+    }
 
-.container {
-  display:flex;
-  flex-wrap:wrap;
-  gap:15px;
-  padding:15px;
-}
+    .brand-wrap{display:flex;align-items:flex-end;gap:10px}
+    .brand-main{
+      font-size:34px;
+      font-weight:900;
+      color:var(--brand);
+      letter-spacing:.2px
+    }
+    .brand-sub{
+      font-size:14px;
+      color:var(--muted);
+      margin-bottom:6px;
+      font-weight:700
+    }
 
-.module {
-  background:#020617;
-  padding:15px;
-  border-radius:12px;
-  width:32%;
-}
+    .actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap
+    }
 
-h3 { margin-top:0; }
+    .badge{
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border:1px solid var(--line);
+      color:var(--muted);
+      border-radius:999px;
+      padding:10px 12px;
+      font-size:12px;
+      box-shadow:var(--shadow)
+    }
 
-.green { color:#22c55e; }
-.red { color:#ef4444; }
-</style>
+    .btn{
+      border:none;
+      background:linear-gradient(135deg,var(--brand),var(--brand2));
+      color:#fff;
+      font-weight:800;
+      border-radius:12px;
+      padding:11px 14px;
+      cursor:pointer
+    }
+    .btn:hover{filter:brightness(1.05)}
 
+    .indexes{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(150px,1fr));
+      gap:12px;
+      margin-bottom:16px
+    }
+
+    .mini-card{
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:14px;
+      box-shadow:var(--shadow)
+    }
+    .mini-label{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px}
+    .mini-price{font-size:24px;font-weight:900}
+    .mini-change{font-size:13px;font-weight:900;margin-top:4px}
+    .green{color:var(--green)}
+    .red{color:var(--red)}
+    .amber{color:var(--amber)}
+
+    .layout{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+      margin-bottom:16px
+    }
+
+    .panel{
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:var(--shadow)
+    }
+
+    .panel-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:14px
+    }
+
+    .panel-title{
+      font-size:20px;
+      font-weight:900;
+      margin:0
+    }
+
+    .panel-sub{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-bottom:14px
+    }
+
+    .stat{
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#0b1424;
+      padding:12px
+    }
+    .stat-k{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px
+    }
+    .stat-v{
+      font-size:20px;
+      font-weight:900
+    }
+
+    .list{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+      gap:12px
+    }
+
+    .stock-card{
+      background:linear-gradient(180deg,#13223d,#0f1a2f);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:14px;
+      min-height:170px;
+      transition:.16s ease;
+    }
+    .stock-card:hover{
+      transform:translateY(-2px);
+      border-color:#3d5683
+    }
+
+    .stock-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:10px
+    }
+    .stock-symbol{font-size:18px;font-weight:900}
+    .stock-name{font-size:12px;color:var(--muted)}
+    .stock-price{font-size:20px;font-weight:900}
+    .stock-change{font-size:13px;font-weight:900}
+
+    .stock-lines{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-top:10px
+    }
+    .stock-line{
+      font-size:12px;
+      color:#bfd0ea
+    }
+
+    .score{
+      display:inline-block;
+      margin-top:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900
+    }
+    .score-hot{background:rgba(245,158,11,.14);color:#fdba74}
+    .score-green{background:rgba(34,197,94,.14);color:#86efac}
+    .score-blue{background:rgba(59,130,246,.14);color:#93c5fd}
+
+    .full-panel{
+      grid-column:1 / -1;
+    }
+
+    .empty{
+      border:1px dashed var(--line2);
+      background:#0b1424;
+      border-radius:14px;
+      padding:18px;
+      text-align:center;
+      color:var(--muted)
+    }
+
+    .footer-note{
+      text-align:right;
+      color:var(--muted);
+      font-size:12px;
+      padding:8px 0
+    }
+
+    @media (max-width:1100px){
+      .layout{grid-template-columns:1fr}
+      .full-panel{grid-column:auto}
+    }
+
+    @media (max-width:900px){
+      .indexes{grid-template-columns:repeat(2,1fr)}
+      .stats{grid-template-columns:1fr}
+    }
+
+    @media (max-width:640px){
+      .indexes,.list{grid-template-columns:1fr}
+      .topbar{flex-direction:column;align-items:flex-start}
+    }
+  </style>
 </head>
-
 <body>
-
-<div class="header" id="indexBar"></div>
-
-<div class="container">
-
-<div class="module">
-<h3>🔥 Scanner</h3>
-<div id="scanner"></div>
-</div>
-
-<div class="module">
-<h3>🐋 Whale Flow</h3>
-<div id="whales"></div>
-</div>
-
-<div class="module">
-<h3>💥 Breakouts</h3>
-<div id="breakouts"></div>
-</div>
-
-</div>
-
-<script>
-
-async function loadIndex(){
-  const res = await fetch("/api/index");
-  const data = await res.json();
-
-  document.getElementById("indexBar").innerHTML =
-    data.map(x=>`
-      <div class="card">
-        ${x.symbol}<br>
-        $${x.regularMarketPrice}<br>
-        <span class="${x.regularMarketChangePercent>0?'green':'red'}">
-        ${x.regularMarketChangePercent.toFixed(2)}%
-        </span>
+  <div class="app">
+    <div class="topbar">
+      <div class="brand-wrap">
+        <div class="brand-main">MarketPulse Pro</div>
+        <div class="brand-sub">Clean Market Intelligence</div>
       </div>
-    `).join("");
-}
+      <div class="actions">
+        <div class="badge">Durum: <strong id="healthStatus">Bağlanıyor</strong></div>
+        <div class="badge">Son Güncelleme: <strong id="lastRefreshText">—</strong></div>
+        <button id="refreshBtn" class="btn">Yenile</button>
+      </div>
+    </div>
 
-async function loadScanner(){
-  const res = await fetch("/api/scanner");
-  const data = await res.json();
+    <div id="indexBar" class="indexes"></div>
 
-  document.getElementById("scanner").innerHTML =
-    data.slice(0,10).map(x=>`
-      ${x.symbol} - ${x.regularMarketChangePercent.toFixed(2)}%<br>
-    `).join("");
-}
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">🔥 Scanner</h2>
+            <div class="panel-sub">En güçlü hareket eden hisseler</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-k">Aday Sayısı</div>
+            <div id="scannerCount" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">En Güçlü Değişim</div>
+            <div id="scannerBest" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">Ortalama Değişim</div>
+            <div id="scannerAvg" class="stat-v">—</div>
+          </div>
+        </div>
+        <div id="scannerList" class="list"></div>
+      </section>
 
-async function loadWhales(){
-  const res = await fetch("/api/whales");
-  const data = await res.json();
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">🐋 Whale Flow</h2>
+            <div class="panel-sub">Hacim ve momentum bazlı güçlü akış</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-k">Aday Sayısı</div>
+            <div id="whaleCount" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">En Yüksek Skor</div>
+            <div id="whaleBest" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">Ortalama Skor</div>
+            <div id="whaleAvg" class="stat-v">—</div>
+          </div>
+        </div>
+        <div id="whaleList" class="list"></div>
+      </section>
 
-  document.getElementById("whales").innerHTML =
-    data.map(x=>`${x.symbol} - VOL SPIKE<br>`).join("");
-}
+      <section class="panel full-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">💥 Breakouts</h2>
+            <div class="panel-sub">Güçlü breakout ve devam potansiyeli</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-k">Aday Sayısı</div>
+            <div id="breakoutCount" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">En Yüksek Skor</div>
+            <div id="breakoutBest" class="stat-v">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-k">Ortalama Skor</div>
+            <div id="breakoutAvg" class="stat-v">—</div>
+          </div>
+        </div>
+        <div id="breakoutList" class="list"></div>
+      </section>
+    </div>
 
-async function loadBreakouts(){
-  const res = await fetch("/api/breakouts");
-  const data = await res.json();
+    <div class="footer-note">MarketPulse Pro Clean</div>
+  </div>
 
-  document.getElementById("breakouts").innerHTML =
-    data.map(x=>`${x.symbol} - breakout<br>`).join("");
-}
+  <script>
+    const $ = (id) => document.getElementById(id);
 
-loadIndex();
-loadScanner();
-loadWhales();
-loadBreakouts();
+    function nowText() {
+      return new Date().toLocaleString("tr-TR");
+    }
 
-setInterval(()=>{
-  loadIndex();
-  loadScanner();
-}, 15000);
+    function formatPrice(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return "—";
+      if (Math.abs(n) >= 1000) return "$" + n.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+      if (Math.abs(n) >= 1) return "$" + n.toFixed(2);
+      return "$" + n.toFixed(4);
+    }
 
-</script>
+    function formatPct(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return "—";
+      const sign = n > 0 ? "+" : "";
+      return sign + n.toFixed(2) + "%";
+    }
 
+    function formatNum(v, digits = 2) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return "—";
+      return n.toLocaleString("en-US", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+    }
+
+    function signalColorClass(v) {
+      return Number(v || 0) >= 0 ? "green" : "red";
+    }
+
+    function buildIndexCard(item) {
+      return `
+        <div class="mini-card">
+          <div class="mini-label">${item.symbol}</div>
+          <div class="mini-price">${formatPrice(item.regularMarketPrice)}</div>
+          <div class="mini-change ${signalColorClass(item.regularMarketChangePercent)}">${formatPct(item.regularMarketChangePercent)}</div>
+        </div>
+      `;
+    }
+
+    function buildStockCard(item, mode) {
+      let scoreLabel = "";
+      let scoreClass = "score-blue";
+
+      if (mode === "scanner") {
+        scoreLabel = `Vol× ${formatNum(item.volumeRatio, 2)}`;
+        scoreClass = "score-blue";
+      } else if (mode === "whale") {
+        scoreLabel = `Whale Score ${item.whaleScore}/100`;
+        scoreClass = "score-hot";
+      } else {
+        scoreLabel = `Breakout Score ${item.breakoutScore}/100`;
+        scoreClass = "score-green";
+      }
+
+      return `
+        <div class="stock-card">
+          <div class="stock-top">
+            <div>
+              <div class="stock-symbol">${item.symbol}</div>
+              <div class="stock-name">${item.shortName || item.symbol}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="stock-price">${formatPrice(item.price)}</div>
+              <div class="stock-change ${signalColorClass(item.changePercent)}">${formatPct(item.changePercent)}</div>
+            </div>
+          </div>
+          <div class="stock-lines">
+            <div class="stock-line">Vol×: ${formatNum(item.volumeRatio, 2)}</div>
+          </div>
+          <div class="score ${scoreClass}">${scoreLabel}</div>
+        </div>
+      `;
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    }
+
+    async function loadHealth() {
+      try {
+        const data = await fetchJson("/health");
+        $("healthStatus").textContent = data.ok ? "Aktif" : "Sorun";
+      } catch {
+        $("healthStatus").textContent = "Hata";
+      }
+    }
+
+    async function loadIndexes() {
+      try {
+        const res = await fetchJson("/api/index");
+        const data = Array.isArray(res.data) ? res.data : [];
+        $("indexBar").innerHTML = data.length
+          ? data.map(buildIndexCard).join("")
+          : `<div class="empty">Index verisi yok</div>`;
+      } catch {
+        $("indexBar").innerHTML = `<div class="empty">Index verisi alınamadı</div>`;
+      }
+    }
+
+    async function loadScanner() {
+      try {
+        const res = await fetchJson("/api/scanner");
+        const data = Array.isArray(res.data) ? res.data : [];
+
+        $("scannerCount").textContent = data.length;
+        $("scannerBest").textContent = data.length ? formatPct(data[0].changePercent) : "—";
+        $("scannerAvg").textContent = data.length
+          ? formatPct(data.reduce((a, b) => a + Number(b.changePercent || 0), 0) / data.length)
+          : "—";
+
+        $("scannerList").innerHTML = data.length
+          ? data.map((item) => buildStockCard(item, "scanner")).join("")
+          : `<div class="empty">Scanner verisi yok</div>`;
+      } catch {
+        $("scannerCount").textContent = "—";
+        $("scannerBest").textContent = "—";
+        $("scannerAvg").textContent = "—";
+        $("scannerList").innerHTML = `<div class="empty">Scanner verisi alınamadı</div>`;
+      }
+    }
+
+    async function loadWhales() {
+      try {
+        const res = await fetchJson("/api/whales");
+        const data = Array.isArray(res.data) ? res.data : [];
+
+        $("whaleCount").textContent = data.length;
+        $("whaleBest").textContent = data.length ? `${data[0].whaleScore}/100` : "—";
+        $("whaleAvg").textContent = data.length
+          ? formatNum(data.reduce((a, b) => a + Number(b.whaleScore || 0), 0) / data.length, 1)
+          : "—";
+
+        $("whaleList").innerHTML = data.length
+          ? data.map((item) => buildStockCard(item, "whale")).join("")
+          : `<div class="empty">Whale Flow verisi yok</div>`;
+      } catch {
+        $("whaleCount").textContent = "—";
+        $("whaleBest").textContent = "—";
+        $("whaleAvg").textContent = "—";
+        $("whaleList").innerHTML = `<div class="empty">Whale Flow verisi alınamadı</div>`;
+      }
+    }
+
+    async function loadBreakouts() {
+      try {
+        const res = await fetchJson("/api/breakouts");
+        const data = Array.isArray(res.data) ? res.data : [];
+
+        $("breakoutCount").textContent = data.length;
+        $("breakoutBest").textContent = data.length ? `${data[0].breakoutScore}/100` : "—";
+        $("breakoutAvg").textContent = data.length
+          ? formatNum(data.reduce((a, b) => a + Number(b.breakoutScore || 0), 0) / data.length, 1)
+          : "—";
+
+        $("breakoutList").innerHTML = data.length
+          ? data.map((item) => buildStockCard(item, "breakout")).join("")
+          : `<div class="empty">Breakout verisi yok</div>`;
+      } catch {
+        $("breakoutCount").textContent = "—";
+        $("breakoutBest").textContent = "—";
+        $("breakoutAvg").textContent = "—";
+        $("breakoutList").innerHTML = `<div class="empty">Breakout verisi alınamadı</div>`;
+      }
+    }
+
+    async function refreshAll() {
+      $("lastRefreshText").textContent = nowText();
+      await Promise.all([
+        loadHealth(),
+        loadIndexes(),
+        loadScanner(),
+        loadWhales(),
+        loadBreakouts()
+      ]);
+    }
+
+    $("refreshBtn").addEventListener("click", refreshAll);
+
+    refreshAll();
+    setInterval(refreshAll, 45000);
+  </script>
 </body>
 </html>
