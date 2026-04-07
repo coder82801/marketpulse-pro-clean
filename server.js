@@ -1,81 +1,34 @@
-
 const express = require("express");
 const cors = require("cors");
 
 const app = express();
 app.use(cors());
-app.use(express.static(__dirname));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// 🔹 YAHOO QUOTE
-async function fetchQuotes(symbols) {
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.quoteResponse.result || [];
-}
-
-// 🔹 SCANNER (TOP MOVERS)
-app.get("/api/scanner", async (req, res) => {
-  try {
-    const symbols = [
-      "AAPL","TSLA","NVDA","AMD","PLTR","SOUN","RGTI","IONQ","META","AMZN"
-    ];
-
-    const data = await fetchQuotes(symbols);
-
-    const sorted = data
-      .filter(x => x.regularMarketPrice)
-      .sort((a, b) => b.regularMarketChangePercent - a.regularMarketChangePercent);
-
-    res.json(sorted);
-  } catch (e) {
-    res.status(500).json({ error: "scanner error" });
-  }
+// TEST DATA (şimdilik dummy)
+app.get("/api/scanner", (req, res) => {
+  res.json([
+    { symbol: "NVDA", change: "+5.2%", price: 920 },
+    { symbol: "TSLA", change: "+3.8%", price: 180 },
+    { symbol: "AMD", change: "+4.1%", price: 162 }
+  ]);
 });
 
-// 🔹 QUOTES
-app.get("/api/quotes", async (req, res) => {
-  try {
-    const symbols = req.query.symbols?.split(",") || [];
-    const data = await fetchQuotes(symbols);
-    res.json(data);
-  } catch {
-    res.status(500).json([]);
-  }
+app.get("/api/whales", (req, res) => {
+  res.json([
+    { symbol: "AAPL", size: "$12M", type: "CALL" },
+    { symbol: "MSFT", size: "$8M", type: "PUT" }
+  ]);
 });
 
-// 🔹 WHALE (basit volume spike)
-app.get("/api/whales", async (req, res) => {
-  const symbols = ["TSLA","NVDA","AMD","PLTR","SOUN"];
-  const data = await fetchQuotes(symbols);
-
-  const whales = data.filter(x =>
-    x.regularMarketVolume > 10000000 &&
-    Math.abs(x.regularMarketChangePercent) > 2
-  );
-
-  res.json(whales);
+app.get("/api/breakouts", (req, res) => {
+  res.json([
+    { symbol: "META", breakout: "Resistance Break" },
+    { symbol: "AMZN", breakout: "Volume Spike" }
+  ]);
 });
 
-// 🔹 NEXT MOVE
-app.get("/api/breakouts", async (req, res) => {
-  const symbols = ["IONQ","RGTI","QBTS","PLTR","SOUN"];
-  const data = await fetchQuotes(symbols);
-
-  const breakout = data.filter(x =>
-    x.regularMarketChangePercent > 3
-  );
-
-  res.json(breakout);
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
 });
-
-// 🔹 MARKET INDEX
-app.get("/api/index", async (req, res) => {
-  const symbols = ["SPY","QQQ","IWM","^VIX"];
-  const data = await fetchQuotes(symbols);
-  res.json(data);
-});
-
-app.listen(PORT, () => console.log("MarketPulse Pro running"));
