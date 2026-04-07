@@ -1,1 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MarketPulse Pro</title>
 
+<style>
+body {
+  background:#0f172a;
+  color:#e2e8f0;
+  font-family:Arial;
+  margin:0;
+}
+
+.header {
+  padding:15px;
+  background:#020617;
+  display:flex;
+  gap:20px;
+}
+
+.card {
+  background:#1e293b;
+  padding:10px;
+  border-radius:10px;
+}
+
+.container {
+  display:flex;
+  flex-wrap:wrap;
+  gap:15px;
+  padding:15px;
+}
+
+.module {
+  background:#020617;
+  padding:15px;
+  border-radius:12px;
+  width:32%;
+}
+
+h3 { margin-top:0; }
+
+.green { color:#22c55e; }
+.red { color:#ef4444; }
+</style>
+
+</head>
+
+<body>
+
+<div class="header" id="indexBar"></div>
+
+<div class="container">
+
+<div class="module">
+<h3>🔥 Scanner</h3>
+<div id="scanner"></div>
+</div>
+
+<div class="module">
+<h3>🐋 Whale Flow</h3>
+<div id="whales"></div>
+</div>
+
+<div class="module">
+<h3>💥 Breakouts</h3>
+<div id="breakouts"></div>
+</div>
+
+</div>
+
+<script>
+
+async function loadIndex(){
+  const res = await fetch("/api/index");
+  const data = await res.json();
+
+  document.getElementById("indexBar").innerHTML =
+    data.map(x=>`
+      <div class="card">
+        ${x.symbol}<br>
+        $${x.regularMarketPrice}<br>
+        <span class="${x.regularMarketChangePercent>0?'green':'red'}">
+        ${x.regularMarketChangePercent.toFixed(2)}%
+        </span>
+      </div>
+    `).join("");
+}
+
+async function loadScanner(){
+  const res = await fetch("/api/scanner");
+  const data = await res.json();
+
+  document.getElementById("scanner").innerHTML =
+    data.slice(0,10).map(x=>`
+      ${x.symbol} - ${x.regularMarketChangePercent.toFixed(2)}%<br>
+    `).join("");
+}
+
+async function loadWhales(){
+  const res = await fetch("/api/whales");
+  const data = await res.json();
+
+  document.getElementById("whales").innerHTML =
+    data.map(x=>`${x.symbol} - VOL SPIKE<br>`).join("");
+}
+
+async function loadBreakouts(){
+  const res = await fetch("/api/breakouts");
+  const data = await res.json();
+
+  document.getElementById("breakouts").innerHTML =
+    data.map(x=>`${x.symbol} - breakout<br>`).join("");
+}
+
+loadIndex();
+loadScanner();
+loadWhales();
+loadBreakouts();
+
+setInterval(()=>{
+  loadIndex();
+  loadScanner();
+}, 15000);
+
+</script>
+
+</body>
+</html>
