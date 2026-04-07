@@ -1,8 +1,10 @@
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(cors());
+app.use(express.static(__dirname)); // index.html serve
 
 const PORT = process.env.PORT || 10000;
 
@@ -12,37 +14,36 @@ const PORT = process.env.PORT || 10000;
 
 const API_KEY = process.env.ALPACA_API_KEY;
 const SECRET_KEY = process.env.ALPACA_SECRET_KEY;
-const FEED = process.env.ALPACA_FEED || "iex";
 
-const WS_URL = "wss://stream.data.alpaca.markets/v2/sip";
+const WS_URL = "wss://stream.data.alpaca.markets/v2/iex";
 
 /* =========================
-   GLOBAL CACHE
+   CACHE
 ========================= */
 
-let marketData = {}; // symbol -> last trade
+let marketData = {};
 let lastUpdate = Date.now();
 
 /* =========================
-   SYMBOL LIST (GENİŞ)
+   SYMBOLS
 ========================= */
 
 const SYMBOLS = [
   "AAPL","TSLA","NVDA","AMD","META","AMZN","PLTR","IONQ","SOFI","RGTI",
   "QBTS","BBAI","SMCI","COIN","MARA","RIOT","RKLB","ASTS","ACHR","JOBY",
-  "SOUN","ENVX","QS","LCID","RIVN","NIO","FUBO","CLOV","AFRM","UPST",
-  "NET","SNOW","DDOG","ZS","MDB","ROKU","AI","PATH","S","APP"
+  "SOUN","ENVX","QS","LCID","RIVN","NIO","FUBO","CLOV","AFRM","UPST"
 ];
 
 /* =========================
-   WEBSOCKET CONNECT
+   WEBSOCKET
 ========================= */
 
 function connectAlpaca() {
-  const ws = new (require("ws"))(WS_URL);
+  const WebSocket = require("ws");
+  const ws = new WebSocket(WS_URL);
 
   ws.on("open", () => {
-    console.log("Alpaca WS connected");
+    console.log("WS connected");
 
     ws.send(JSON.stringify({
       action: "auth",
@@ -64,8 +65,7 @@ function connectAlpaca() {
     data.forEach((item) => {
       if (item.T === "t") {
         marketData[item.S] = {
-          price: item.p,
-          timestamp: item.t
+          price: item.p
         };
       }
     });
@@ -74,99 +74,73 @@ function connectAlpaca() {
   });
 
   ws.on("close", () => {
-    console.log("WS reconnecting...");
+    console.log("reconnecting...");
     setTimeout(connectAlpaca, 2000);
   });
 
   ws.on("error", (err) => {
-    console.log("WS error:", err.message);
+    console.log("WS error", err.message);
   });
 }
 
 connectAlpaca();
 
 /* =========================
-   SCORING MODELS
+   DATA MODEL
 ========================= */
 
-function getRandomChange() {
-  return (Math.random() * 12) - 3; // simülasyon fallback
-}
-
-function buildDataset() {
+function buildData() {
   return Object.keys(marketData).map(symbol => {
-    const price = marketData[symbol].price;
-
-    const change = getRandomChange(); // şimdilik price change yok → simülasyon
-    const vol = Math.random() * 5;
-
     return {
       symbol,
-      price,
-      changePercent: change,
-      volumeRatio: vol
+      price: marketData[symbol].price,
+      changePercent: (Math.random() * 10), // geçici
+      volumeRatio: (Math.random() * 5)
     };
   });
 }
 
-/* =========================
-   MODELS
-========================= */
-
 function scanner(data) {
-  return data
-    .filter(x => x.changePercent >= 5)
-    .sort((a,b)=>b.changePercent-a.changePercent)
-    .slice(0,20);
+  return data.filter(x => x.changePercent >= 5);
 }
 
 function whales(data) {
-  return data
-    .map(x => ({
-      ...x,
-      score: (x.volumeRatio * 20) + (x.changePercent * 3)
-    }))
-    .filter(x => x.score > 40)
-    .sort((a,b)=>b.score-a.score)
-    .slice(0,20);
+  return data.map(x => ({
+    ...x,
+    score: x.volumeRatio * 20 + x.changePercent * 3
+  })).filter(x => x.score > 40);
 }
 
 function breakout(data) {
-  return data
-    .map(x => ({
-      ...x,
-      score: (x.changePercent * 5) + (x.volumeRatio * 10)
-    }))
-    .filter(x => x.score > 50)
-    .sort((a,b)=>b.score-a.score)
-    .slice(0,20);
+  return data.map(x => ({
+    ...x,
+    score: x.changePercent * 5 + x.volumeRatio * 10
+  })).filter(x => x.score > 50);
 }
 
 function accumulation(data) {
-  return data
-    .map(x => ({
-      ...x,
-      score: (x.volumeRatio * 15) - Math.abs(x.changePercent)
-    }))
-    .filter(x => x.score > 20)
-    .sort((a,b)=>b.score-a.score)
-    .slice(0,20);
+  return data.map(x => ({
+    ...x,
+    score: x.volumeRatio * 10 - x.changePercent
+  })).filter(x => x.score > 10);
 }
 
 /* =========================
-   API
+   ROUTES
 ========================= */
 
-app.get("/api/all", (req,res)=>{
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
-  const dataset = buildDataset();
+app.get("/api/all", (req, res) => {
+  const data = buildData();
 
   res.json({
-    ok:true,
-    scanner: scanner(dataset),
-    whales: whales(dataset),
-    breakout: breakout(dataset),
-    accumulation: accumulation(dataset),
+    scanner: scanner(data),
+    whales: whales(data),
+    breakout: breakout(data),
+    accumulation: accumulation(data),
     lastUpdate
   });
 });
@@ -174,5 +148,5 @@ app.get("/api/all", (req,res)=>{
 /* ========================= */
 
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log("Server running on", PORT);
 });
