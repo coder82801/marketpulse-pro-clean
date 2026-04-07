@@ -1,563 +1,178 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
-const fetch = require("node-fetch");
 
 const app = express();
-
 app.use(cors());
-app.use(express.json());
-app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 10000;
 
-const ALPACA_API_KEY = process.env.ALPACA_API_KEY || "";
-const ALPACA_SECRET_KEY = process.env.ALPACA_SECRET_KEY || "";
-const ALPACA_FEED = process.env.ALPACA_FEED || "iex";
+/* =========================
+   ALPACA CONFIG
+========================= */
 
-const DEFAULT_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  Accept: "application/json,text/plain,*/*",
-  "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
-  Referer: "https://finance.yahoo.com/",
-  Origin: "https://finance.yahoo.com"
-};
+const API_KEY = process.env.ALPACA_API_KEY;
+const SECRET_KEY = process.env.ALPACA_SECRET_KEY;
+const FEED = process.env.ALPACA_FEED || "iex";
 
-const INDEX_SYMBOLS = ["SPY", "QQQ", "IWM", "^VIX"];
+const WS_URL = "wss://stream.data.alpaca.markets/v2/sip";
 
-/**
- * İstersen bu listeyi zamanla büyütebiliriz.
- * V1 için aktif, likit ve momentum odaklı bir evren kullandım.
- * Gerçek “tüm piyasa” taraması için sonraki sürümde tam US symbol universe eklenebilir.
- */
-const STOCK_UNIVERSE = [
-  "AAPL","MSFT","NVDA","AMD","TSLA","META","AMZN","GOOGL","AVGO","NFLX",
-  "PLTR","ARM","SMCI","MU","INTC","QCOM","ADBE","CRM","NOW","SHOP",
-  "SNOW","NET","DDOG","MDB","ZS","CRWD","PANW","S","PATH","APP",
-  "UPST","AFRM","SOFI","HOOD","COIN","MSTR","MARA","RIOT","CLSK","HUT",
-  "IONQ","RGTI","QBTS","QUBT","SOUN","BBAI","AI","SERV","TEM","RXRX",
-  "LUNR","RKLB","ASTS","PL","ACHR","JOBY","NNE","OKLO","SMR","ENVX",
-  "QS","EOSE","KULR","MVIS","LIDR","LCID","RIVN","NIO","FUBO","CAVA",
-  "CELH","HIMS","VKTX","CLOV","PLUG","RR","CTMX","SOPA","EOSE","BKSY",
-  "INTA","GTLB","DUOL","ABNB","UBER","DASH","PYPL","SQ","ROKU","TTD",
-  "DOCU","MRVL","ANET","VRT","ASML","TSM","NVO","LLY","PFE","MRNA",
-  "JNJ","XOM","CVX","SLB","HAL","FCX","NEM","GOLD","U","RBLX",
-  "BITF","CIFR","IREN","CFLT","ESTC","MNDY","ONON","DKNG","PINS","ETSY"
+/* =========================
+   GLOBAL CACHE
+========================= */
+
+let marketData = {}; // symbol -> last trade
+let lastUpdate = Date.now();
+
+/* =========================
+   SYMBOL LIST (GENİŞ)
+========================= */
+
+const SYMBOLS = [
+  "AAPL","TSLA","NVDA","AMD","META","AMZN","PLTR","IONQ","SOFI","RGTI",
+  "QBTS","BBAI","SMCI","COIN","MARA","RIOT","RKLB","ASTS","ACHR","JOBY",
+  "SOUN","ENVX","QS","LCID","RIVN","NIO","FUBO","CLOV","AFRM","UPST",
+  "NET","SNOW","DDOG","ZS","MDB","ROKU","AI","PATH","S","APP"
 ];
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+/* =========================
+   WEBSOCKET CONNECT
+========================= */
 
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
+function connectAlpaca() {
+  const ws = new (require("ws"))(WS_URL);
 
-function toNumber(value, fallback = null) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
+  ws.on("open", () => {
+    console.log("Alpaca WS connected");
 
-function safeUpper(s) {
-  return String(s || "").trim().toUpperCase();
-}
-
-function formatSymbolForDisplay(symbol) {
-  if (symbol === "^VIX") return "VIX";
-  return symbol;
-}
-
-async function safeFetchJson(url, options = {}, timeoutMs = 15000) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      throw new Error(`HTTP ${response.status}${text ? ` - ${text}` : ""}`);
-    }
-
-    return await response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function hasAlpacaKeys() {
-  return Boolean(ALPACA_API_KEY && ALPACA_SECRET_KEY);
-}
-
-function getAlpacaHeaders() {
-  return {
-    accept: "application/json",
-    "APCA-API-KEY-ID": ALPACA_API_KEY,
-    "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
-  };
-}
-
-function normalizeYahooQuote(q = {}) {
-  return {
-    symbol: formatSymbolForDisplay(q.symbol || ""),
-    rawSymbol: q.symbol || "",
-    shortName: q.shortName || q.longName || q.displayName || q.symbol || "",
-    price: toNumber(q.regularMarketPrice, null),
-    changePercent: toNumber(q.regularMarketChangePercent, 0),
-    open: toNumber(q.regularMarketOpen, null),
-    high: toNumber(q.regularMarketDayHigh, null),
-    low: toNumber(q.regularMarketDayLow, null),
-    prevClose: toNumber(q.regularMarketPreviousClose, null),
-    volume: toNumber(q.regularMarketVolume, 0),
-    avgVolume: toNumber(q.averageVolume || q.averageDailyVolume3Month, 0),
-    marketCap: toNumber(q.marketCap, 0),
-    exchange: q.fullExchangeName || q.exchange || "",
-    source: "yahoo"
-  };
-}
-
-async function fetchYahooQuotes(symbols) {
-  if (!symbols.length) return [];
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(","))}`;
-  const data = await safeFetchJson(url, { headers: DEFAULT_HEADERS }, 12000);
-  const results = data?.quoteResponse?.result || [];
-  return Array.isArray(results) ? results.map(normalizeYahooQuote) : [];
-}
-
-async function fetchYahooIndexSymbols() {
-  try {
-    return await fetchYahooQuotes(INDEX_SYMBOLS);
-  } catch {
-    return [];
-  }
-}
-
-async function fetchAlpacaSnapshots(symbols) {
-  if (!hasAlpacaKeys() || !symbols.length) return {};
-  const out = {};
-
-  for (const batch of chunk(symbols, 200)) {
-    const url =
-      `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${encodeURIComponent(batch.join(","))}` +
-      `&feed=${encodeURIComponent(ALPACA_FEED)}`;
-
-    const data = await safeFetchJson(url, {
-      headers: getAlpacaHeaders()
-    });
-
-    const snapshots = data?.snapshots || {};
-    for (const [symbol, snap] of Object.entries(snapshots)) {
-      out[symbol] = snap;
-    }
-    await sleep(80);
-  }
-
-  return out;
-}
-
-async function fetchAlpacaDailyBars(symbols, days = 10) {
-  if (!hasAlpacaKeys() || !symbols.length) return {};
-  const out = {};
-
-  const now = new Date();
-  const end = now.toISOString();
-  const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
-
-  for (const batch of chunk(symbols, 100)) {
-    const url =
-      `https://data.alpaca.markets/v2/stocks/bars?symbols=${encodeURIComponent(batch.join(","))}` +
-      `&timeframe=1Day&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}` +
-      `&adjustment=raw&feed=${encodeURIComponent(ALPACA_FEED)}&sort=asc&limit=10000`;
-
-    const data = await safeFetchJson(url, {
-      headers: getAlpacaHeaders()
-    });
-
-    const barsMap = data?.bars || {};
-    for (const [symbol, bars] of Object.entries(barsMap)) {
-      out[symbol] = Array.isArray(bars) ? bars : [];
-    }
-    await sleep(80);
-  }
-
-  return out;
-}
-
-function averageVolumeFromBars(bars = []) {
-  const vols = bars.map((b) => toNumber(b.v, 0)).filter((x) => Number.isFinite(x) && x > 0);
-  if (!vols.length) return 0;
-  return vols.reduce((a, b) => a + b, 0) / vols.length;
-}
-
-function normalizeAlpacaSnapshot(symbol, snapshot, dailyBarsMap) {
-  const latestTrade = snapshot?.latestTrade || {};
-  const minuteBar = snapshot?.minuteBar || {};
-  const dailyBar = snapshot?.dailyBar || {};
-  const prevDailyBar = snapshot?.prevDailyBar || {};
-  const bars = dailyBarsMap[symbol] || [];
-
-  const price =
-    toNumber(latestTrade.p, null) ??
-    toNumber(minuteBar.c, null) ??
-    toNumber(dailyBar.c, null);
-
-  const prevClose = toNumber(prevDailyBar.c, null);
-  const changePercent =
-    price != null && prevClose != null && prevClose !== 0
-      ? ((price - prevClose) / prevClose) * 100
-      : 0;
-
-  return {
-    symbol,
-    rawSymbol: symbol,
-    shortName: symbol,
-    price,
-    changePercent,
-    open: toNumber(dailyBar.o, null),
-    high: toNumber(dailyBar.h, null),
-    low: toNumber(dailyBar.l, null),
-    prevClose,
-    volume: toNumber(dailyBar.v, 0),
-    avgVolume: averageVolumeFromBars(bars),
-    marketCap: 0,
-    exchange: "Alpaca",
-    source: "alpaca",
-    latestTrade,
-    minuteBar,
-    dailyBar,
-    prevDailyBar,
-    dailyBars: bars
-  };
-}
-
-async function buildUniverseQuotes() {
-  if (hasAlpacaKeys()) {
-    try {
-      const snapshots = await fetchAlpacaSnapshots(STOCK_UNIVERSE);
-      const dailyBarsMap = await fetchAlpacaDailyBars(STOCK_UNIVERSE, 12);
-
-      const quotes = STOCK_UNIVERSE.map((symbol) => {
-        const snap = snapshots[symbol];
-        if (!snap) return null;
-        return normalizeAlpacaSnapshot(symbol, snap, dailyBarsMap);
-      }).filter(Boolean);
-
-      if (quotes.length) return quotes;
-    } catch (error) {
-      console.error("ALPACA UNIVERSE ERROR:", error.message);
-    }
-  }
-
-  return await fetchYahooQuotes(STOCK_UNIVERSE);
-}
-
-function getVolumeRatio(q) {
-  const vol = Number(q.volume || 0);
-  const avg = Number(q.avgVolume || 0);
-  if (!avg) return 0;
-  return vol / avg;
-}
-
-function getDayRangePercent(q) {
-  const high = Number(q.high || 0);
-  const low = Number(q.low || 0);
-  const prevClose = Number(q.prevClose || 0);
-
-  if (!high || !low || !prevClose || high <= low) return 0;
-  return ((high - low) / prevClose) * 100;
-}
-
-function getCloseLocation(q) {
-  const high = Number(q.high || 0);
-  const low = Number(q.low || 0);
-  const price = Number(q.price || 0);
-  if (!high || !low || !price || high <= low) return 0;
-  return (price - low) / (high - low);
-}
-
-function getMinuteImpulse(q) {
-  const minuteOpen = toNumber(q.minuteBar?.o, null);
-  const minuteClose = toNumber(q.minuteBar?.c, null);
-  if (minuteOpen == null || minuteClose == null || minuteOpen === 0) return 0;
-  return ((minuteClose - minuteOpen) / minuteOpen) * 100;
-}
-
-function getPrevDailyBreak(q) {
-  const prevHigh = toNumber(q.prevDailyBar?.h, null);
-  const price = Number(q.price || 0);
-  if (prevHigh == null || !price) return false;
-  return price > prevHigh;
-}
-
-function baseMoverFilter(q) {
-  return Number(q.price || 0) > 0.3 && Number(q.changePercent || 0) >= 5;
-}
-
-function calcWhaleScore(q) {
-  const changePct = Number(q.changePercent || 0);
-  const volRatio = getVolumeRatio(q);
-  const rangePct = getDayRangePercent(q);
-  const closeLoc = getCloseLocation(q);
-  const minuteImpulse = getMinuteImpulse(q);
-
-  let score = 0;
-  if (changePct >= 5) score += 16;
-  if (changePct >= 8) score += 12;
-  if (changePct >= 12) score += 10;
-
-  if (volRatio >= 1.5) score += 12;
-  if (volRatio >= 2.0) score += 12;
-  if (volRatio >= 3.0) score += 12;
-
-  if (rangePct >= 4) score += 10;
-  if (rangePct >= 7) score += 8;
-
-  if (closeLoc >= 0.65) score += 10;
-  if (closeLoc >= 0.8) score += 8;
-
-  if (minuteImpulse >= 0.2) score += 6;
-  if (minuteImpulse >= 0.5) score += 4;
-
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-function calcBreakoutScore(q) {
-  const changePct = Number(q.changePercent || 0);
-  const volRatio = getVolumeRatio(q);
-  const rangePct = getDayRangePercent(q);
-  const closeLoc = getCloseLocation(q);
-  const minuteImpulse = getMinuteImpulse(q);
-  const brokePrevDaily = getPrevDailyBreak(q);
-
-  let score = 0;
-  if (changePct >= 5) score += 14;
-  if (changePct >= 8) score += 10;
-  if (changePct >= 12) score += 8;
-
-  if (volRatio >= 1.5) score += 12;
-  if (volRatio >= 2.2) score += 12;
-
-  if (rangePct >= 5) score += 12;
-  if (rangePct >= 8) score += 8;
-
-  if (closeLoc >= 0.72) score += 14;
-  if (closeLoc >= 0.85) score += 10;
-
-  if (minuteImpulse >= 0.3) score += 6;
-  if (brokePrevDaily) score += 14;
-
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-function calcAccumulationScore(q) {
-  const changePct = Number(q.changePercent || 0);
-  const volRatio = getVolumeRatio(q);
-  const rangePct = getDayRangePercent(q);
-  const closeLoc = getCloseLocation(q);
-
-  let score = 0;
-
-  if (changePct >= 5 && changePct <= 9) score += 18;
-  if (changePct > 9 && changePct <= 13) score += 10;
-
-  if (volRatio >= 1.3) score += 14;
-  if (volRatio >= 1.8) score += 12;
-  if (volRatio >= 2.5) score += 8;
-
-  if (rangePct >= 3 && rangePct <= 9) score += 12;
-  if (rangePct > 9 && rangePct <= 14) score += 6;
-
-  if (closeLoc >= 0.7) score += 16;
-  if (closeLoc >= 0.85) score += 10;
-
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-function buildScanner(quotes) {
-  return quotes
-    .filter(baseMoverFilter)
-    .sort((a, b) => Number(b.changePercent || 0) - Number(a.changePercent || 0))
-    .slice(0, 50)
-    .map((q) => ({
-      symbol: q.symbol,
-      shortName: q.shortName,
-      price: q.price,
-      changePercent: q.changePercent,
-      volumeRatio: getVolumeRatio(q),
-      rangePercent: getDayRangePercent(q),
-      closeLocation: getCloseLocation(q)
+    ws.send(JSON.stringify({
+      action: "auth",
+      key: API_KEY,
+      secret: SECRET_KEY
     }));
-}
 
-function buildWhales(quotes) {
-  return quotes
-    .filter(baseMoverFilter)
-    .map((q) => ({
-      ...q,
-      whaleScore: calcWhaleScore(q)
-    }))
-    .filter((q) => q.whaleScore >= 60)
-    .sort((a, b) => b.whaleScore - a.whaleScore)
-    .slice(0, 25)
-    .map((q) => ({
-      symbol: q.symbol,
-      shortName: q.shortName,
-      price: q.price,
-      changePercent: q.changePercent,
-      volumeRatio: getVolumeRatio(q),
-      rangePercent: getDayRangePercent(q),
-      whaleScore: q.whaleScore
-    }));
-}
-
-function buildBreakouts(quotes) {
-  return quotes
-    .filter(baseMoverFilter)
-    .map((q) => ({
-      ...q,
-      breakoutScore: calcBreakoutScore(q)
-    }))
-    .filter((q) => q.breakoutScore >= 60)
-    .sort((a, b) => b.breakoutScore - a.breakoutScore)
-    .slice(0, 25)
-    .map((q) => ({
-      symbol: q.symbol,
-      shortName: q.shortName,
-      price: q.price,
-      changePercent: q.changePercent,
-      volumeRatio: getVolumeRatio(q),
-      rangePercent: getDayRangePercent(q),
-      breakoutScore: q.breakoutScore
-    }));
-}
-
-function buildAccumulation(quotes) {
-  return quotes
-    .filter(baseMoverFilter)
-    .map((q) => ({
-      ...q,
-      accumulationScore: calcAccumulationScore(q)
-    }))
-    .filter((q) => q.accumulationScore >= 58)
-    .sort((a, b) => b.accumulationScore - a.accumulationScore)
-    .slice(0, 25)
-    .map((q) => ({
-      symbol: q.symbol,
-      shortName: q.shortName,
-      price: q.price,
-      changePercent: q.changePercent,
-      volumeRatio: getVolumeRatio(q),
-      rangePercent: getDayRangePercent(q),
-      accumulationScore: q.accumulationScore
-    }));
-}
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    service: "marketpulse-pro",
-    alpacaConfigured: hasAlpacaKeys(),
-    feed: ALPACA_FEED,
-    timestamp: new Date().toISOString()
+    setTimeout(() => {
+      ws.send(JSON.stringify({
+        action: "subscribe",
+        trades: SYMBOLS
+      }));
+    }, 500);
   });
-});
 
-app.get("/api/index", async (req, res) => {
-  try {
-    let data = [];
+  ws.on("message", (msg) => {
+    const data = JSON.parse(msg.toString());
 
-    if (hasAlpacaKeys()) {
-      try {
-        const alpacaIndexQuotes = await buildUniverseQuotes();
-        const map = Object.fromEntries(alpacaIndexQuotes.map((q) => [q.symbol, q]));
-        data = ["SPY", "QQQ", "IWM"]
-          .map((s) => map[s])
-          .filter(Boolean)
-          .map((q) => ({
-            symbol: q.symbol,
-            price: q.price,
-            changePercent: q.changePercent
-          }));
-      } catch {
-        // ignore
+    data.forEach((item) => {
+      if (item.T === "t") {
+        marketData[item.S] = {
+          price: item.p,
+          timestamp: item.t
+        };
       }
-    }
+    });
 
-    const yahooIndexes = await fetchYahooIndexSymbols();
-    const yahooMap = Object.fromEntries(yahooIndexes.map((q) => [q.symbol, q]));
+    lastUpdate = Date.now();
+  });
 
-    if (!data.find((x) => x.symbol === "SPY") && yahooMap.SPY) {
-      data.push({ symbol: "SPY", price: yahooMap.SPY.price, changePercent: yahooMap.SPY.changePercent });
-    }
-    if (!data.find((x) => x.symbol === "QQQ") && yahooMap.QQQ) {
-      data.push({ symbol: "QQQ", price: yahooMap.QQQ.price, changePercent: yahooMap.QQQ.changePercent });
-    }
-    if (!data.find((x) => x.symbol === "IWM") && yahooMap.IWM) {
-      data.push({ symbol: "IWM", price: yahooMap.IWM.price, changePercent: yahooMap.IWM.changePercent });
-    }
-    if (yahooMap.VIX) {
-      data.push({ symbol: "VIX", price: yahooMap.VIX.price, changePercent: yahooMap.VIX.changePercent });
-    }
+  ws.on("close", () => {
+    console.log("WS reconnecting...");
+    setTimeout(connectAlpaca, 2000);
+  });
 
-    res.json({ ok: true, data });
-  } catch (error) {
-    res.status(500).json({ ok: false, data: [], error: error.message });
-  }
-});
+  ws.on("error", (err) => {
+    console.log("WS error:", err.message);
+  });
+}
 
-app.get("/api/scanner", async (req, res) => {
-  try {
-    const quotes = await buildUniverseQuotes();
-    res.json({ ok: true, data: buildScanner(quotes) });
-  } catch (error) {
-    res.status(500).json({ ok: false, data: [], error: error.message });
-  }
-});
+connectAlpaca();
 
-app.get("/api/whales", async (req, res) => {
-  try {
-    const quotes = await buildUniverseQuotes();
-    res.json({ ok: true, data: buildWhales(quotes) });
-  } catch (error) {
-    res.status(500).json({ ok: false, data: [], error: error.message });
-  }
-});
+/* =========================
+   SCORING MODELS
+========================= */
 
-app.get("/api/breakouts", async (req, res) => {
-  try {
-    const quotes = await buildUniverseQuotes();
-    res.json({ ok: true, data: buildBreakouts(quotes) });
-  } catch (error) {
-    res.status(500).json({ ok: false, data: [], error: error.message });
-  }
-});
+function getRandomChange() {
+  return (Math.random() * 12) - 3; // simülasyon fallback
+}
 
-app.get("/api/accumulation", async (req, res) => {
-  try {
-    const quotes = await buildUniverseQuotes();
-    res.json({ ok: true, data: buildAccumulation(quotes) });
-  } catch (error) {
-    res.status(500).json({ ok: false, data: [], error: error.message });
-  }
-});
+function buildDataset() {
+  return Object.keys(marketData).map(symbol => {
+    const price = marketData[symbol].price;
 
-app.use((req, res) => {
-  res.status(404).json({
-    ok: false,
-    error: "Not found"
+    const change = getRandomChange(); // şimdilik price change yok → simülasyon
+    const vol = Math.random() * 5;
+
+    return {
+      symbol,
+      price,
+      changePercent: change,
+      volumeRatio: vol
+    };
+  });
+}
+
+/* =========================
+   MODELS
+========================= */
+
+function scanner(data) {
+  return data
+    .filter(x => x.changePercent >= 5)
+    .sort((a,b)=>b.changePercent-a.changePercent)
+    .slice(0,20);
+}
+
+function whales(data) {
+  return data
+    .map(x => ({
+      ...x,
+      score: (x.volumeRatio * 20) + (x.changePercent * 3)
+    }))
+    .filter(x => x.score > 40)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,20);
+}
+
+function breakout(data) {
+  return data
+    .map(x => ({
+      ...x,
+      score: (x.changePercent * 5) + (x.volumeRatio * 10)
+    }))
+    .filter(x => x.score > 50)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,20);
+}
+
+function accumulation(data) {
+  return data
+    .map(x => ({
+      ...x,
+      score: (x.volumeRatio * 15) - Math.abs(x.changePercent)
+    }))
+    .filter(x => x.score > 20)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,20);
+}
+
+/* =========================
+   API
+========================= */
+
+app.get("/api/all", (req,res)=>{
+
+  const dataset = buildDataset();
+
+  res.json({
+    ok:true,
+    scanner: scanner(dataset),
+    whales: whales(dataset),
+    breakout: breakout(dataset),
+    accumulation: accumulation(dataset),
+    lastUpdate
   });
 });
+
+/* ========================= */
 
 app.listen(PORT, () => {
-  console.log(`MarketPulse Pro running on port ${PORT}`);
+  console.log("Server running on port", PORT);
 });
