@@ -10,7 +10,6 @@
       --bg2:#0b1830;
       --panel:#0d172a;
       --panel2:#101c34;
-      --card:#12203a;
       --line:#21314f;
       --line2:#30476f;
       --text:#e7eefb;
@@ -20,6 +19,7 @@
       --green:#22c55e;
       --red:#ef4444;
       --amber:#f59e0b;
+      --purple:#a855f7;
       --shadow:0 14px 32px rgba(0,0,0,.28);
       --radius:18px;
     }
@@ -34,41 +34,12 @@
     }
     body{min-height:100vh}
 
-    .app{
-      max-width:1650px;
-      margin:0 auto;
-      padding:18px;
-    }
-
-    .topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:14px;
-      margin-bottom:14px
-    }
-
+    .app{max-width:1700px;margin:0 auto;padding:18px}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:14px}
     .brand-wrap{display:flex;align-items:flex-end;gap:10px}
-    .brand-main{
-      font-size:36px;
-      font-weight:900;
-      color:var(--brand);
-      letter-spacing:.2px
-    }
-    .brand-sub{
-      font-size:14px;
-      color:var(--muted);
-      margin-bottom:7px;
-      font-weight:700
-    }
-
-    .actions{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap
-    }
-
+    .brand-main{font-size:36px;font-weight:900;color:var(--brand);letter-spacing:.2px}
+    .brand-sub{font-size:14px;color:var(--muted);margin-bottom:7px;font-weight:700}
+    .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .badge{
       background:linear-gradient(180deg,var(--panel),var(--panel2));
       border:1px solid var(--line);
@@ -78,7 +49,6 @@
       font-size:12px;
       box-shadow:var(--shadow)
     }
-
     .btn{
       border:none;
       background:linear-gradient(135deg,var(--brand),var(--brand2));
@@ -88,11 +58,10 @@
       padding:11px 14px;
       cursor:pointer
     }
-    .btn:hover{filter:brightness(1.05)}
 
     .indexes{
       display:grid;
-      grid-template-columns:repeat(4,minmax(150px,1fr));
+      grid-template-columns:repeat(5,minmax(150px,1fr));
       gap:12px;
       margin-bottom:16px
     }
@@ -126,25 +95,9 @@
       box-shadow:var(--shadow)
     }
 
-    .panel-header{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      margin-bottom:14px
-    }
-
-    .panel-title{
-      font-size:22px;
-      font-weight:900;
-      margin:0
-    }
-
-    .panel-sub{
-      font-size:12px;
-      color:var(--muted);
-      margin-top:4px
-    }
+    .panel-header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+    .panel-title{font-size:22px;font-weight:900;margin:0}
+    .panel-sub{font-size:12px;color:var(--muted);margin-top:4px}
 
     .stats{
       display:grid;
@@ -159,15 +112,8 @@
       background:#0b1424;
       padding:12px
     }
-    .stat-k{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:6px
-    }
-    .stat-v{
-      font-size:20px;
-      font-weight:900
-    }
+    .stat-k{font-size:12px;color:var(--muted);margin-bottom:6px}
+    .stat-v{font-size:20px;font-weight:900}
 
     .list{
       display:grid;
@@ -183,10 +129,7 @@
       min-height:188px;
       transition:.16s ease;
     }
-    .stock-card:hover{
-      transform:translateY(-2px);
-      border-color:#3d5683
-    }
+    .stock-card:hover{transform:translateY(-2px);border-color:#3d5683}
 
     .stock-top{
       display:flex;
@@ -199,17 +142,8 @@
     .stock-name{font-size:12px;color:var(--muted)}
     .stock-price{font-size:20px;font-weight:900}
     .stock-change{font-size:13px;font-weight:900}
-
-    .stock-lines{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      margin-top:10px
-    }
-    .stock-line{
-      font-size:12px;
-      color:#bfd0ea
-    }
+    .stock-lines{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+    .stock-line{font-size:12px;color:#bfd0ea}
 
     .score{
       display:inline-block;
@@ -224,6 +158,8 @@
     .score-blue{background:rgba(59,130,246,.14);color:#93c5fd}
     .score-purple{background:rgba(168,85,247,.14);color:#d8b4fe}
 
+    .full-panel{grid-column:1 / -1}
+
     .empty{
       border:1px dashed var(--line2);
       background:#0b1424;
@@ -233,22 +169,16 @@
       color:var(--muted)
     }
 
-    .footer-note{
-      text-align:right;
-      color:var(--muted);
-      font-size:12px;
-      padding:8px 0
-    }
+    .footer-note{text-align:right;color:var(--muted);font-size:12px;padding:8px 0}
 
-    @media (max-width:1200px){
+    @media (max-width:1250px){
       .layout{grid-template-columns:1fr}
+      .full-panel{grid-column:auto}
     }
-
     @media (max-width:900px){
       .indexes{grid-template-columns:repeat(2,1fr)}
       .stats{grid-template-columns:1fr}
     }
-
     @media (max-width:640px){
       .indexes,.list{grid-template-columns:1fr}
       .topbar{flex-direction:column;align-items:flex-start}
@@ -273,6 +203,21 @@
     <div id="indexBar" class="indexes"></div>
 
     <div class="layout">
+      <section class="panel full-panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">📊 Broad Movers (%3+)</h2>
+            <div class="panel-sub">Geniş hareket eden hisseler</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="stat-k">Toplam Quote</div><div id="broadTotal" class="stat-v">—</div></div>
+          <div class="stat"><div class="stat-k">%3+ Aday</div><div id="broadCount" class="stat-v">—</div></div>
+          <div class="stat"><div class="stat-k">%5+ Aday</div><div id="movers5CountTop" class="stat-v">—</div></div>
+        </div>
+        <div id="broadList" class="list"></div>
+      </section>
+
       <section class="panel">
         <div class="panel-header">
           <div>
@@ -386,7 +331,10 @@
       let scoreLabel = "";
       let scoreClass = "score-blue";
 
-      if (mode === "scanner") {
+      if (mode === "broad") {
+        scoreLabel = `Vol× ${formatNum(item.volumeRatio, 2)}`;
+        scoreClass = "score-blue";
+      } else if (mode === "scanner") {
         scoreLabel = `Vol× ${formatNum(item.volumeRatio, 2)}`;
         scoreClass = "score-blue";
       } else if (mode === "whale") {
@@ -429,6 +377,10 @@
 
     function fillEmptyState() {
       $("indexBar").innerHTML = `<div class="empty">Index verisi alınamadı</div>`;
+      $("broadTotal").textContent = "—";
+      $("broadCount").textContent = "—";
+      $("movers5CountTop").textContent = "—";
+      $("broadList").innerHTML = `<div class="empty">Broad movers verisi alınamadı</div>`;
       $("scannerCount").textContent = "—";
       $("scannerBest").textContent = "—";
       $("scannerAvg").textContent = "—";
@@ -470,23 +422,32 @@
         }
 
         const index = Array.isArray(res.index) ? res.index : [];
-        const scanner = Array.isArray(res.scanner) ? res.scanner : [];
+        const broadMovers = Array.isArray(res.broadMovers) ? res.broadMovers : [];
+        const movers5 = Array.isArray(res.movers5) ? res.movers5 : [];
         const whales = Array.isArray(res.whales) ? res.whales : [];
         const breakouts = Array.isArray(res.breakouts) ? res.breakouts : [];
         const accumulation = Array.isArray(res.accumulation) ? res.accumulation : [];
+        const counts = res.counts || {};
 
         $("indexBar").innerHTML = index.length
           ? index.map(buildIndexCard).join("")
           : `<div class="empty">Index verisi yok</div>`;
 
-        $("scannerCount").textContent = scanner.length;
-        $("scannerBest").textContent = scanner.length ? formatPct(scanner[0].changePercent) : "—";
-        $("scannerAvg").textContent = scanner.length
-          ? formatPct(scanner.reduce((a, b) => a + Number(b.changePercent || 0), 0) / scanner.length)
+        $("broadTotal").textContent = counts.totalQuotes ?? "—";
+        $("broadCount").textContent = counts.movers3 ?? "—";
+        $("movers5CountTop").textContent = counts.movers5 ?? "—";
+        $("broadList").innerHTML = broadMovers.length
+          ? broadMovers.map((item) => buildStockCard(item, "broad")).join("")
+          : `<div class="empty">%3+ broad movers yok</div>`;
+
+        $("scannerCount").textContent = movers5.length;
+        $("scannerBest").textContent = movers5.length ? formatPct(movers5[0].changePercent) : "—";
+        $("scannerAvg").textContent = movers5.length
+          ? formatPct(movers5.reduce((a, b) => a + Number(b.changePercent || 0), 0) / movers5.length)
           : "—";
-        $("scannerList").innerHTML = scanner.length
-          ? scanner.map((item) => buildStockCard(item, "scanner")).join("")
-          : `<div class="empty">Scanner verisi yok</div>`;
+        $("scannerList").innerHTML = movers5.length
+          ? movers5.map((item) => buildStockCard(item, "scanner")).join("")
+          : `<div class="empty">%5+ mover yok</div>`;
 
         $("whaleCount").textContent = whales.length;
         $("whaleBest").textContent = whales.length ? `${whales[0].whaleScore}/100` : "—";
@@ -495,7 +456,7 @@
           : "—";
         $("whaleList").innerHTML = whales.length
           ? whales.map((item) => buildStockCard(item, "whale")).join("")
-          : `<div class="empty">Whale verisi yok</div>`;
+          : `<div class="empty">Whale aday yok</div>`;
 
         $("breakoutCount").textContent = breakouts.length;
         $("breakoutBest").textContent = breakouts.length ? `${breakouts[0].breakoutScore}/100` : "—";
@@ -504,7 +465,7 @@
           : "—";
         $("breakoutList").innerHTML = breakouts.length
           ? breakouts.map((item) => buildStockCard(item, "breakout")).join("")
-          : `<div class="empty">Breakout verisi yok</div>`;
+          : `<div class="empty">Breakout aday yok</div>`;
 
         $("accCount").textContent = accumulation.length;
         $("accBest").textContent = accumulation.length ? `${accumulation[0].accumulationScore}/100` : "—";
@@ -513,7 +474,7 @@
           : "—";
         $("accList").innerHTML = accumulation.length
           ? accumulation.map((item) => buildStockCard(item, "acc")).join("")
-          : `<div class="empty">Accumulation verisi yok</div>`;
+          : `<div class="empty">Accumulation aday yok</div>`;
       } catch {
         fillEmptyState();
       }
