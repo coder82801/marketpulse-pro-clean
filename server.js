@@ -15,17 +15,14 @@ const ALPACA_API_KEY = process.env.ALPACA_API_KEY || "";
 const ALPACA_SECRET_KEY = process.env.ALPACA_SECRET_KEY || "";
 const ALPACA_FEED = process.env.ALPACA_FEED || "iex";
 
-const DEFAULT_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  Accept: "application/json,text/plain,*/*",
-  "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
-  Referer: "https://finance.yahoo.com/",
-  Origin: "https://finance.yahoo.com"
-};
+const INDEX_SYMBOLS = ["SPY", "QQQ", "IWM", "DIA"];
+const VIX_PROXY_SYMBOL = "UVXY";
 
-const INDEX_SYMBOLS = ["SPY", "QQQ", "IWM", "^VIX"];
-
+/**
+ * V1 için genişletilmiş aktif evren.
+ * Bu hâlâ "tüm ABD piyasası" değil ama önceki sürümden çok daha geniş.
+ * Sonraki aşamada Alpaca assets endpoint ile tam evren kurabiliriz.
+ */
 const STOCK_UNIVERSE = [
   "AAPL","MSFT","NVDA","AMD","TSLA","META","AMZN","GOOGL","AVGO","NFLX",
   "PLTR","ARM","SMCI","MU","INTC","QCOM","ADBE","CRM","NOW","SHOP",
@@ -34,21 +31,30 @@ const STOCK_UNIVERSE = [
   "IONQ","RGTI","QBTS","QUBT","SOUN","BBAI","AI","SERV","TEM","RXRX",
   "LUNR","RKLB","ASTS","PL","ACHR","JOBY","NNE","OKLO","SMR","ENVX",
   "QS","EOSE","KULR","MVIS","LIDR","LCID","RIVN","NIO","FUBO","CAVA",
-  "CELH","HIMS","VKTX","CLOV","PLUG","RR","CTMX","SOPA","BKSY",
+  "CELH","HIMS","VKTX","CLOV","PLUG","RR","CTMX","SOPA","BKSY","OPEN",
   "INTA","GTLB","DUOL","ABNB","UBER","DASH","PYPL","SQ","ROKU","TTD",
   "DOCU","MRVL","ANET","VRT","ASML","TSM","NVO","LLY","PFE","MRNA",
   "JNJ","XOM","CVX","SLB","HAL","FCX","NEM","GOLD","U","RBLX",
-  "BITF","CIFR","IREN","CFLT","ESTC","MNDY","ONON","DKNG","PINS","ETSY"
+  "BITF","CIFR","IREN","CFLT","ESTC","MNDY","ONON","DKNG","PINS","ETSY",
+  "FSLR","ENPH","SEDG","RUN","ARRY","BE","CHPT","BLNK","QS","ENVX",
+  "WULF","MIGI","CAN","BTBT","CORZ","IREN","BITF","CIFR","HIMS","OSCR",
+  "GME","AMC","BB","PLTR","SOUN","BBAI","AI","SMR","OKLO","NNE"
 ];
 
 let dashboardCache = {
   generatedAt: null,
   source: "none",
   index: [],
-  scanner: [],
+  broadMovers: [],
+  movers5: [],
   whales: [],
   breakouts: [],
   accumulation: [],
+  counts: {
+    totalQuotes: 0,
+    movers3: 0,
+    movers5: 0
+  },
   error: null
 };
 
@@ -81,10 +87,6 @@ function toNumber(value, fallback = null) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function formatSymbolForDisplay(symbol) {
-  return symbol === "^VIX" ? "VIX" : symbol;
-}
-
 async function safeFetchJson(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -103,39 +105,6 @@ async function safeFetchJson(url, options = {}, timeoutMs = 15000) {
     return await response.json();
   } finally {
     clearTimeout(timeout);
-  }
-}
-
-function normalizeYahooQuote(q = {}) {
-  return {
-    symbol: formatSymbolForDisplay(q.symbol || ""),
-    shortName: q.shortName || q.longName || q.displayName || q.symbol || "",
-    price: toNumber(q.regularMarketPrice, null),
-    changePercent: toNumber(q.regularMarketChangePercent, 0),
-    open: toNumber(q.regularMarketOpen, null),
-    high: toNumber(q.regularMarketDayHigh, null),
-    low: toNumber(q.regularMarketDayLow, null),
-    prevClose: toNumber(q.regularMarketPreviousClose, null),
-    volume: toNumber(q.regularMarketVolume, 0),
-    avgVolume: toNumber(q.averageVolume || q.averageDailyVolume3Month, 0),
-    marketCap: toNumber(q.marketCap, 0),
-    source: "yahoo"
-  };
-}
-
-async function fetchYahooQuotes(symbols) {
-  if (!symbols.length) return [];
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(","))}`;
-  const data = await safeFetchJson(url, { headers: DEFAULT_HEADERS }, 12000);
-  const results = data?.quoteResponse?.result || [];
-  return Array.isArray(results) ? results.map(normalizeYahooQuote) : [];
-}
-
-async function fetchYahooIndexQuotes() {
-  try {
-    return await fetchYahooQuotes(INDEX_SYMBOLS);
-  } catch {
-    return [];
   }
 }
 
@@ -158,7 +127,7 @@ async function fetchAlpacaSnapshots(symbols) {
       output[symbol] = snap;
     }
 
-    await sleep(60);
+    await sleep(40);
   }
 
   return output;
@@ -187,7 +156,7 @@ async function fetchAlpacaDailyBars(symbols, days = 12) {
       output[symbol] = Array.isArray(bars) ? bars : [];
     }
 
-    await sleep(60);
+    await sleep(40);
   }
 
   return output;
@@ -199,7 +168,7 @@ function averageVolumeFromBars(bars = []) {
   return vols.reduce((a, b) => a + b, 0) / vols.length;
 }
 
-function normalizeAlpacaSnapshot(symbol, snapshot, barsMap) {
+function normalizeSnapshot(symbol, snapshot, barsMap) {
   const latestTrade = snapshot?.latestTrade || {};
   const minuteBar = snapshot?.minuteBar || {};
   const dailyBar = snapshot?.dailyBar || {};
@@ -229,13 +198,10 @@ function normalizeAlpacaSnapshot(symbol, snapshot, barsMap) {
     prevClose,
     volume: toNumber(dailyBar.v, 0),
     avgVolume: averageVolumeFromBars(bars),
-    marketCap: 0,
     latestTrade,
     minuteBar,
     dailyBar,
-    prevDailyBar,
-    dailyBars: bars,
-    source: "alpaca"
+    prevDailyBar
   };
 }
 
@@ -250,7 +216,6 @@ function getDayRangePercent(q) {
   const high = Number(q.high || 0);
   const low = Number(q.low || 0);
   const prevClose = Number(q.prevClose || 0);
-
   if (!high || !low || !prevClose || high <= low) return 0;
   return ((high - low) / prevClose) * 100;
 }
@@ -277,10 +242,6 @@ function getPrevDailyBreak(q) {
   return price > prevHigh;
 }
 
-function baseMoverFilter(q) {
-  return Number(q.price || 0) > 0.3 && Number(q.changePercent || 0) >= 5;
-}
-
 function calcWhaleScore(q) {
   const changePct = Number(q.changePercent || 0);
   const volRatio = getVolumeRatio(q);
@@ -289,17 +250,17 @@ function calcWhaleScore(q) {
   const minuteImpulse = getMinuteImpulse(q);
 
   let score = 0;
-  if (changePct >= 5) score += 16;
-  if (changePct >= 8) score += 12;
-  if (changePct >= 12) score += 10;
-  if (volRatio >= 1.5) score += 12;
-  if (volRatio >= 2.0) score += 12;
-  if (volRatio >= 3.0) score += 12;
+  if (changePct >= 5) score += 14;
+  if (changePct >= 8) score += 10;
+  if (changePct >= 12) score += 8;
+  if (volRatio >= 1.2) score += 10;
+  if (volRatio >= 1.8) score += 12;
+  if (volRatio >= 2.5) score += 12;
   if (rangePct >= 4) score += 10;
   if (rangePct >= 7) score += 8;
   if (closeLoc >= 0.65) score += 10;
   if (closeLoc >= 0.8) score += 8;
-  if (minuteImpulse >= 0.2) score += 6;
+  if (minuteImpulse >= 0.2) score += 4;
   if (minuteImpulse >= 0.5) score += 4;
 
   return Math.max(0, Math.min(100, Math.round(score)));
@@ -310,21 +271,19 @@ function calcBreakoutScore(q) {
   const volRatio = getVolumeRatio(q);
   const rangePct = getDayRangePercent(q);
   const closeLoc = getCloseLocation(q);
-  const minuteImpulse = getMinuteImpulse(q);
   const brokePrevDaily = getPrevDailyBreak(q);
 
   let score = 0;
   if (changePct >= 5) score += 14;
   if (changePct >= 8) score += 10;
   if (changePct >= 12) score += 8;
-  if (volRatio >= 1.5) score += 12;
-  if (volRatio >= 2.2) score += 12;
-  if (rangePct >= 5) score += 12;
-  if (rangePct >= 8) score += 8;
+  if (volRatio >= 1.2) score += 10;
+  if (volRatio >= 1.8) score += 12;
+  if (rangePct >= 4) score += 10;
+  if (rangePct >= 7) score += 10;
   if (closeLoc >= 0.72) score += 14;
   if (closeLoc >= 0.85) score += 10;
-  if (minuteImpulse >= 0.3) score += 6;
-  if (brokePrevDaily) score += 14;
+  if (brokePrevDaily) score += 12;
 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -336,22 +295,39 @@ function calcAccumulationScore(q) {
   const closeLoc = getCloseLocation(q);
 
   let score = 0;
-  if (changePct >= 5 && changePct <= 9) score += 18;
-  if (changePct > 9 && changePct <= 13) score += 10;
-  if (volRatio >= 1.3) score += 14;
-  if (volRatio >= 1.8) score += 12;
-  if (volRatio >= 2.5) score += 8;
-  if (rangePct >= 3 && rangePct <= 9) score += 12;
-  if (rangePct > 9 && rangePct <= 14) score += 6;
+  if (changePct >= 3 && changePct <= 9) score += 18;
+  if (changePct > 9 && changePct <= 13) score += 8;
+  if (volRatio >= 1.2) score += 12;
+  if (volRatio >= 1.7) score += 12;
+  if (volRatio >= 2.2) score += 8;
+  if (rangePct >= 2.5 && rangePct <= 8.5) score += 12;
+  if (rangePct > 8.5 && rangePct <= 12) score += 6;
   if (closeLoc >= 0.7) score += 16;
   if (closeLoc >= 0.85) score += 10;
 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function buildScanner(quotes) {
+function buildBroadMovers(quotes) {
   return quotes
-    .filter(baseMoverFilter)
+    .filter((q) => Number(q.price || 0) > 0.3)
+    .filter((q) => Number(q.changePercent || 0) >= 3)
+    .sort((a, b) => Number(b.changePercent || 0) - Number(a.changePercent || 0))
+    .slice(0, 50)
+    .map((q) => ({
+      symbol: q.symbol,
+      shortName: q.shortName,
+      price: q.price,
+      changePercent: q.changePercent,
+      volumeRatio: getVolumeRatio(q),
+      rangePercent: getDayRangePercent(q)
+    }));
+}
+
+function buildMovers5(quotes) {
+  return quotes
+    .filter((q) => Number(q.price || 0) > 0.3)
+    .filter((q) => Number(q.changePercent || 0) >= 5)
     .sort((a, b) => Number(b.changePercent || 0) - Number(a.changePercent || 0))
     .slice(0, 50)
     .map((q) => ({
@@ -366,9 +342,10 @@ function buildScanner(quotes) {
 
 function buildWhales(quotes) {
   return quotes
-    .filter(baseMoverFilter)
+    .filter((q) => Number(q.price || 0) > 0.3)
+    .filter((q) => Number(q.changePercent || 0) >= 5)
     .map((q) => ({ ...q, whaleScore: calcWhaleScore(q) }))
-    .filter((q) => q.whaleScore >= 60)
+    .filter((q) => q.whaleScore >= 52)
     .sort((a, b) => b.whaleScore - a.whaleScore)
     .slice(0, 25)
     .map((q) => ({
@@ -384,9 +361,10 @@ function buildWhales(quotes) {
 
 function buildBreakouts(quotes) {
   return quotes
-    .filter(baseMoverFilter)
+    .filter((q) => Number(q.price || 0) > 0.3)
+    .filter((q) => Number(q.changePercent || 0) >= 5)
     .map((q) => ({ ...q, breakoutScore: calcBreakoutScore(q) }))
-    .filter((q) => q.breakoutScore >= 60)
+    .filter((q) => q.breakoutScore >= 54)
     .sort((a, b) => b.breakoutScore - a.breakoutScore)
     .slice(0, 25)
     .map((q) => ({
@@ -402,9 +380,10 @@ function buildBreakouts(quotes) {
 
 function buildAccumulation(quotes) {
   return quotes
-    .filter(baseMoverFilter)
+    .filter((q) => Number(q.price || 0) > 0.3)
+    .filter((q) => Number(q.changePercent || 0) >= 3)
     .map((q) => ({ ...q, accumulationScore: calcAccumulationScore(q) }))
-    .filter((q) => q.accumulationScore >= 58)
+    .filter((q) => q.accumulationScore >= 52)
     .sort((a, b) => b.accumulationScore - a.accumulationScore)
     .slice(0, 25)
     .map((q) => ({
@@ -423,34 +402,63 @@ async function buildDashboard() {
     throw new Error("ALPACA_API_KEY / ALPACA_SECRET_KEY eksik");
   }
 
-  const snapshots = await fetchAlpacaSnapshots(STOCK_UNIVERSE);
-  const barsMap = await fetchAlpacaDailyBars(STOCK_UNIVERSE, 12);
+  const symbolsForAll = [...new Set([...STOCK_UNIVERSE, ...INDEX_SYMBOLS, VIX_PROXY_SYMBOL])];
+  const snapshots = await fetchAlpacaSnapshots(symbolsForAll);
+  const barsMap = await fetchAlpacaDailyBars(symbolsForAll, 12);
 
-  const quotes = STOCK_UNIVERSE.map((symbol) => {
-    const snap = snapshots[symbol];
-    if (!snap) return null;
-    return normalizeAlpacaSnapshot(symbol, snap, barsMap);
-  }).filter((x) => x && x.price != null);
+  const allQuotes = symbolsForAll
+    .map((symbol) => {
+      const snap = snapshots[symbol];
+      if (!snap) return null;
+      return normalizeSnapshot(symbol, snap, barsMap);
+    })
+    .filter((x) => x && x.price != null);
 
-  const scanner = buildScanner(quotes);
-  const whales = buildWhales(quotes);
-  const breakouts = buildBreakouts(quotes);
-  const accumulation = buildAccumulation(quotes);
+  const quoteMap = Object.fromEntries(allQuotes.map((q) => [q.symbol, q]));
 
-  const yahooIndex = await fetchYahooIndexQuotes();
+  const index = [];
+  for (const sym of INDEX_SYMBOLS) {
+    const q = quoteMap[sym];
+    if (q) {
+      index.push({
+        symbol: q.symbol,
+        price: q.price,
+        changePercent: q.changePercent
+      });
+    }
+  }
+
+  const vixProxy = quoteMap[VIX_PROXY_SYMBOL];
+  if (vixProxy) {
+    index.push({
+      symbol: "VIX*",
+      price: vixProxy.price,
+      changePercent: vixProxy.changePercent
+    });
+  }
+
+  const tradeQuotes = allQuotes.filter((q) => STOCK_UNIVERSE.includes(q.symbol));
+
+  const broadMovers = buildBroadMovers(tradeQuotes);
+  const movers5 = buildMovers5(tradeQuotes);
+  const whales = buildWhales(tradeQuotes);
+  const breakouts = buildBreakouts(tradeQuotes);
+  const accumulation = buildAccumulation(tradeQuotes);
 
   return {
     generatedAt: new Date().toISOString(),
     source: `alpaca-${ALPACA_FEED}`,
-    index: yahooIndex.map((q) => ({
-      symbol: q.symbol,
-      price: q.price,
-      changePercent: q.changePercent
-    })),
-    scanner,
+    index,
+    broadMovers,
+    movers5,
     whales,
     breakouts,
     accumulation,
+    counts: {
+      totalQuotes: tradeQuotes.length,
+      movers3: broadMovers.length,
+      movers5: movers5.length
+    },
     error: null
   };
 }
@@ -496,7 +504,7 @@ app.get("/api/dashboard", (req, res) => {
 });
 
 refreshDashboardCache();
-setInterval(refreshDashboardCache, 2000);
+setInterval(refreshDashboardCache, 2500);
 
 app.listen(PORT, () => {
   console.log(`MarketPulse Pro running on port ${PORT}`);
